@@ -1,0 +1,15 @@
+{{- if .Values.controlPlane.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aegis.fullname" . }}-cp
+spec:
+  type: {{ .Values.controlPlane.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "aegis.name" . }}
+    app.kubernetes.io/component: control-plane
+  ports:
+    - name: https
+      port: {{ .Values.controlPlane.service.port }}
+      targetPort: 8443
+{{- end }}

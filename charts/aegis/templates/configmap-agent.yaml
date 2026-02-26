@@ -1,0 +1,14 @@
+{{- if and .Values.agent.enabled .Values.agent.config.create (not .Values.agent.config.existingConfigMapName) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aegis.fullname" . }}-agent-config
+  labels:
+    app.kubernetes.io/name: {{ include "aegis.name" . }}
+    app.kubernetes.io/component: agent
+data:
+{{- range $k, $v := .Values.agent.config.data }}
+  {{ $k }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+

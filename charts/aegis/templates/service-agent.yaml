@@ -1,0 +1,15 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aegis.fullname" . }}-agent
+spec:
+  type: {{ .Values.agent.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "aegis.name" . }}
+    app.kubernetes.io/component: agent
+  ports:
+    - name: https
+      port: {{ .Values.agent.service.port }}
+      targetPort: 8444
+{{- end }}

@@ -1,0 +1,108 @@
+global:
+  imagePullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: true
+
+rbac:
+  create: true
+
+controlPlane:
+  enabled: true
+  image: "ghcr.io/velikey/aegis-control-plane:0.1.0"
+  replicas: 1
+  addr: ""
+  service:
+    type: ClusterIP
+    port: 8443
+  resources: {}
+  podSecurityContext: {}
+  containerSecurityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  tls:
+    enabled: false
+    secretName: ""
+    mountPath: /etc/velikey/certs
+    certKey: tls.crt
+    keyKey: tls.key
+    certManager:
+      enabled: false
+      issuerRef:
+        name: ""
+        kind: ClusterIssuer
+        group: cert-manager.io
+      dnsNames: []
+  pdb:
+    enabled: false
+    minAvailable: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+
+agent:
+  enabled: true
+  image: "ghcr.io/velikey/aegis-agent:0.1.0"
+  # Optional override of container entrypoint/args. Useful to bypass image entrypoints.
+  command: []
+  args: []
+  controlPlaneUrl: ""
+  # Optional: mount a control-plane CA cert secret and set CA_CERT_PATH in the agent.
+  # This enables strict TLS validation for the control-plane URL (recommended for production).
+  # When set, also set (via agent.config.data):
+  #   AEGIS_ACCEPT_INVALID_CERTS: "false"
+  #   AEGIS_ACCEPT_INVALID_HOSTNAMES: "false"
+  controlPlaneCa:
+    existingSecretName: ""
+    mountPath: /etc/velikey/control-plane-ca
+    certKey: ca.crt
+  hostNetwork: false
+  service:
+    type: ClusterIP
+    port: 8444
+  updateStrategy:
+    type: RollingUpdate
+    maxUnavailable: 1
+  config:
+    create: true
+    existingConfigMapName: ""
+    data: {}
+  secret:
+    create: true
+    existingSecretName: ""
+    bootstrapToken: ""
+    data: {}
+  tls:
+    enabled: false
+    secretName: ""
+    mountPath: /etc/velikey/certs
+    certKey: tls.crt
+    keyKey: tls.key
+    certManager:
+      enabled: false
+      issuerRef:
+        name: ""
+        kind: ClusterIssuer
+        group: cert-manager.io
+      dnsNames: []
+  resources: {}
+  podSecurityContext: {}
+  containerSecurityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls:
+    enabled: false
+    secretName: ""

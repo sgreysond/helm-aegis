@@ -1,0 +1,152 @@
+{{- if .Values.agent.enabled -}}
+{{- $fullname := include "aegis.fullname" . -}}
+{{- $configMapName := .Values.agent.config.existingConfigMapName | default (printf "%s-agent-config" $fullname) -}}
+{{- $secretName := .Values.agent.secret.existingSecretName | default (printf "%s-agent-secret" $fullname) -}}
+{{- $cpUrl := .Values.agent.controlPlaneUrl | default (printf "https://%s-cp:%d" $fullname (.Values.controlPlane.service.port | int)) -}}
+{{- $cpCaSecretName := .Values.agent.controlPlaneCa.existingSecretName | default "" -}}
+{{- $cpCaMountPath := .Values.agent.controlPlaneCa.mountPath | default "/etc/velikey/control-plane-ca" -}}
+{{- $cpCaCertKey := .Values.agent.controlPlaneCa.certKey | default "ca.crt" -}}
+{{- $cpCaCertPath := printf "%s/%s" $cpCaMountPath $cpCaCertKey -}}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "aegis.fullname" . }}-agent
+  labels:
+    app.kubernetes.io/name: {{ include "aegis.name" . }}
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "aegis.name" . }}
+      app.kubernetes.io/component: agent
+  updateStrategy:
+    type: {{ .Values.agent.updateStrategy.type | default "RollingUpdate" }}
+    {{- if eq (.Values.agent.updateStrategy.type | default "RollingUpdate") "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.agent.updateStrategy.maxUnavailable | default 1 }}
+    {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "aegis.name" . }}
+        app.kubernetes.io/component: agent
+    spec:
+      {{- if .Values.agent.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      serviceAccountName: {{ include "aegis.serviceAccountName" . }}
+      {{- with .Values.agent.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: agent
+          image: {{ .Values.agent.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.agent.command }}
+          command:
+            {{- toYaml .Values.agent.command | nindent 12 }}
+          {{- end }}
+          {{- if .Values.agent.args }}
+          args:
+            {{- toYaml .Values.agent.args | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: https
+              containerPort: 8444
+            - name: health
+              containerPort: 9080
+          env:
+            - name: AEGIS_CONTROL_PLANE_URL
+              value: {{ $cpUrl | quote }}
+            - name: AEGIS_CONTROL_PLANE
+              value: {{ $cpUrl | quote }}
+            - name: AEGIS_AGENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: AEGIS_AGENT_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: AEGIS_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{- if $cpCaSecretName }}
+            - name: CA_CERT_PATH
+              value: {{ $cpCaCertPath | quote }}
+            {{- end }}
+            {{- if .Values.agent.tls.enabled }}
+            - name: AEGIS_TLS_ENABLED
+              value: "true"
+            - name: AEGIS_TLS_CERT
+              value: {{ printf "%s/%s" (.Values.agent.tls.mountPath | default "/etc/velikey/certs") (.Values.agent.tls.certKey | default "tls.crt") | quote }}
+            - name: AEGIS_TLS_KEY
+              value: {{ printf "%s/%s" (.Values.agent.tls.mountPath | default "/etc/velikey/certs") (.Values.agent.tls.keyKey | default "tls.key") | quote }}
+            {{- end }}
+          envFrom:
+            {{- if or .Values.agent.config.existingConfigMapName .Values.agent.config.create }}
+            - configMapRef:
+                name: {{ $configMapName }}
+            {{- end }}
+            {{- if or .Values.agent.secret.existingSecretName (and .Values.agent.secret.create (or .Values.agent.secret.bootstrapToken (gt (len (.Values.agent.secret.data | default dict)) 0))) }}
+            - secretRef:
+                name: {{ $secretName }}
+            {{- end }}
+          {{- with .Values.agent.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.agent.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+          {{- if or .Values.agent.tls.enabled $cpCaSecretName }}
+          volumeMounts:
+            {{- if .Values.agent.tls.enabled }}
+            - name: agent-tls
+              mountPath: {{ .Values.agent.tls.mountPath | default "/etc/velikey/certs" | quote }}
+              readOnly: true
+            {{- end }}
+            {{- if $cpCaSecretName }}
+            - name: cp-ca
+              mountPath: {{ $cpCaMountPath | quote }}
+              readOnly: true
+            {{- end }}
+          {{- end }}
+      {{- if or .Values.agent.tls.enabled $cpCaSecretName }}
+      volumes:
+        {{- if .Values.agent.tls.enabled }}
+        - name: agent-tls
+          secret:
+            secretName: {{ include "aegis.agentTlsSecretName" . }}
+        {{- end }}
+        {{- if $cpCaSecretName }}
+        - name: cp-ca
+          secret:
+            secretName: {{ $cpCaSecretName | quote }}
+        {{- end }}
+      {{- end }}
+{{- end }}

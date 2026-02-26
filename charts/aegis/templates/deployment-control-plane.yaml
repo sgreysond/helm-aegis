@@ -1,0 +1,82 @@
+{{- if .Values.controlPlane.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aegis.fullname" . }}-cp
+  labels:
+    app.kubernetes.io/name: {{ include "aegis.name" . }}
+    app.kubernetes.io/component: control-plane
+spec:
+  replicas: {{ .Values.controlPlane.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "aegis.name" . }}
+      app.kubernetes.io/component: control-plane
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "aegis.name" . }}
+        app.kubernetes.io/component: control-plane
+    spec:
+      {{- with .Values.controlPlane.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controlPlane.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controlPlane.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controlPlane.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: cp
+          image: {{ .Values.controlPlane.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8443
+          env:
+            - name: AEGIS_CP_ADDR
+              value: {{ .Values.controlPlane.addr | default "0.0.0.0:8443" | quote }}
+            {{- if .Values.controlPlane.tls.enabled }}
+            - name: AEGIS_CP_TLS_CERT
+              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | default "/etc/velikey/certs") (.Values.controlPlane.tls.certKey | default "tls.crt") | quote }}
+            - name: AEGIS_CP_TLS_KEY
+              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | default "/etc/velikey/certs") (.Values.controlPlane.tls.keyKey | default "tls.key") | quote }}
+            {{- end }}
+          {{- with .Values.controlPlane.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8443
+              scheme: HTTPS
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+          {{- with .Values.controlPlane.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.controlPlane.tls.enabled }}
+          volumeMounts:
+            - name: cp-tls
+              mountPath: {{ .Values.controlPlane.tls.mountPath | default "/etc/velikey/certs" | quote }}
+              readOnly: true
+          {{- end }}
+      {{- if .Values.controlPlane.tls.enabled }}
+      volumes:
+        - name: cp-tls
+          secret:
+            secretName: {{ include "aegis.controlPlaneTlsSecretName" . }}
+      {{- end }}
+{{- end }}

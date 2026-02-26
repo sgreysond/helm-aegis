@@ -1,0 +1,24 @@
+{{- if and .Values.agent.enabled .Values.agent.tls.enabled .Values.agent.tls.certManager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "aegis.fullname" . }}-agent
+  labels:
+    app.kubernetes.io/name: {{ include "aegis.name" . }}
+    app.kubernetes.io/component: agent
+spec:
+  secretName: {{ include "aegis.agentTlsSecretName" . }}
+  issuerRef:
+    name: {{ .Values.agent.tls.certManager.issuerRef.name | quote }}
+    kind: {{ .Values.agent.tls.certManager.issuerRef.kind | default "ClusterIssuer" | quote }}
+    group: {{ .Values.agent.tls.certManager.issuerRef.group | default "cert-manager.io" | quote }}
+  dnsNames:
+    {{- $svc := printf "%s-agent" (include "aegis.fullname" .) -}}
+    - {{ $svc | quote }}
+    - {{ printf "%s.%s.svc" $svc .Release.Namespace | quote }}
+    - {{ printf "%s.%s.svc.cluster.local" $svc .Release.Namespace | quote }}
+    {{- range .Values.agent.tls.certManager.dnsNames }}
+    - {{ . | quote }}
+    {{- end }}
+{{- end }}
+
