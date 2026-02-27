@@ -2,13 +2,20 @@ apiVersion: v2
 name: aegis
 description: VeliKey Aegis - control-plane and agents
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "0.1.0"
 
 annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/license: Apache-2.0
+  artifacthub.io/images: |
+    - name: aegis-agent
+      image: ghcr.io/velikey/aegis-agent:0.1.0
+      whitelisted: true
+    - name: aegis-control-plane
+      image: ghcr.io/velikey/aegis-control-plane:0.1.0
+      whitelisted: true
   artifacthub.io/changes: |
-    - kind: added
-      description: Initial public Helm chart publication.
+    - kind: changed
+      description: Whitelist unresolved OCI image references in Artifact Hub metadata to prevent scan errors until public image publication is finalized.

@@ -5,8 +5,8 @@ Public Helm chart distribution for VeliKey Aegis.
 ## Install
 
 ```bash
-helm pull oci://ghcr.io/sgreysond/charts/aegis --version 0.1.0
-helm upgrade --install aegis oci://ghcr.io/sgreysond/charts/aegis --version 0.1.0 \
+helm pull oci://ghcr.io/sgreysond/charts/aegis --version 0.1.1
+helm upgrade --install aegis oci://ghcr.io/sgreysond/charts/aegis --version 0.1.1 \
   --namespace aegis-system --create-namespace
 ```
 
